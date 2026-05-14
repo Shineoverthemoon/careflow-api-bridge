@@ -4,6 +4,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import intakeRouter from "./routes/intake.js";
 import mockEhrRouter from "./routes/mockEhr.js";
@@ -35,11 +36,35 @@ app.use("/api/health", healthRouter);
 
 // Serve built frontend in production (Render single-service deploy)
 const frontendDist = path.join(__dirname, "..", "frontend", "dist");
-app.use(express.static(frontendDist));
+const frontendIndex = path.join(frontendDist, "index.html");
+const distExists = fs.existsSync(frontendDist);
+const indexExists = fs.existsSync(frontendIndex);
+
+console.log("\n  [static] __dirname        :", __dirname);
+console.log("  [static] frontendDist     :", frontendDist);
+console.log("  [static] dist exists      :", distExists);
+console.log("  [static] index.html exists:", indexExists);
+console.log("  [static] cwd              :", process.cwd());
+
+if (distExists) {
+  app.use(express.static(frontendDist));
+}
 
 // Catch-all for client-side routes (everything except /api/*)
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(frontendDist, "index.html"));
+  if (indexExists) {
+    res.sendFile(frontendIndex);
+  } else {
+    res.status(500).json({
+      error: "Frontend build not found",
+      expectedPath: frontendIndex,
+      distExists,
+      indexExists,
+      cwd: process.cwd(),
+      dirname: __dirname,
+      hint: "The frontend build did not land where the server expects."
+    });
+  }
 });
 
 // 404 fallback (only hits unmatched /api/* paths now)
