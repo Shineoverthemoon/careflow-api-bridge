@@ -1,8 +1,10 @@
-// CareFlow API Bridge - Backend Entry
+﻿// CareFlow API Bridge - Backend Entry
 // Synthetic demo only. No PHI, no real data, no production use.
 
 import express from "express";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 import intakeRouter from "./routes/intake.js";
 import mockEhrRouter from "./routes/mockEhr.js";
 import mockSchedulingRouter from "./routes/mockScheduling.js";
@@ -11,6 +13,7 @@ import logsRouter from "./routes/logs.js";
 import healthRouter from "./routes/health.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -18,10 +21,10 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
-// Experience API — patient intake entry point
+// Experience API - patient intake entry point
 app.use("/api/intake", intakeRouter);
 
-// System APIs — mock downstream systems
+// System APIs - mock downstream systems
 app.use("/api/mock/ehr", mockEhrRouter);
 app.use("/api/mock/scheduling", mockSchedulingRouter);
 app.use("/api/mock/notification", mockNotificationRouter);
@@ -30,7 +33,16 @@ app.use("/api/mock/notification", mockNotificationRouter);
 app.use("/api/logs", logsRouter);
 app.use("/api/health", healthRouter);
 
-// 404 fallback
+// Serve built frontend in production (Render single-service deploy)
+const frontendDist = path.join(__dirname, "..", "frontend", "dist");
+app.use(express.static(frontendDist));
+
+// Catch-all for client-side routes (everything except /api/*)
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
+
+// 404 fallback (only hits unmatched /api/* paths now)
 app.use((req, res) => {
   res.status(404).json({
     error: "Not Found",
@@ -40,7 +52,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n  CareFlow API Bridge — backend running on http://localhost:${PORT}`);
+  console.log(`\n  CareFlow API Bridge - backend running on http://localhost:${PORT}`);
   console.log(`  Endpoints:`);
   console.log(`    GET  /api/health`);
   console.log(`    POST /api/intake`);
